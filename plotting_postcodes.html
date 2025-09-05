@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.6.39">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Plotting postcodes</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="plotting_postcodes_files/libs/clipboard/clipboard.min.js"></script>
+<script src="plotting_postcodes_files/libs/quarto-html/quarto.js"></script>
+<script src="plotting_postcodes_files/libs/quarto-html/popper.min.js"></script>
+<script src="plotting_postcodes_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="plotting_postcodes_files/libs/quarto-html/anchor.min.js"></script>
+<link href="plotting_postcodes_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="plotting_postcodes_files/libs/quarto-html/quarto-syntax-highlighting-e26003cea8cd680ca0c55a263523d882.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="plotting_postcodes_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="plotting_postcodes_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="plotting_postcodes_files/libs/bootstrap/bootstrap-8a79a254b8e706d3c925cde0a310d4f0.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="plotting_postcodes_files/libs/pagedtable-1.1/css/pagedtable.css" rel="stylesheet">
+
+<script src="plotting_postcodes_files/libs/pagedtable-1.1/js/pagedtable.js"></script>
+
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Plotting postcodes</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>Suppose we have some list of NHS organisations and we want to plot them. We start with a list of trust ODS codes:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>trusts <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">'RYC'</span>, <span class="st">'RX9'</span>, <span class="st">'RRU'</span>, <span class="st">'RX6'</span>, <span class="st">'RX7'</span>,</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>            <span class="st">'RYE'</span>, <span class="st">'RYD'</span>, <span class="st">'RYF'</span>, <span class="st">'RYA'</span>, <span class="st">'RX8'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We can obtain their postcodes via the ODS API:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(httr)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>ods_url <span class="ot">&lt;-</span> <span class="st">'https://uat.directory.spineservices.nhs.uk/ORD/2-0-0/organisations/'</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>postcode_table <span class="ot">&lt;-</span> <span class="fu">lapply</span>(trusts, <span class="cf">function</span>(x){</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  query <span class="ot">&lt;-</span> <span class="fu">paste0</span>(ods_url, x)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  content <span class="ot">&lt;-</span> <span class="fu">content</span>(<span class="fu">GET</span>(query))</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  postcode <span class="ot">&lt;-</span> content<span class="sc">$</span>Organisation<span class="sc">$</span>GeoLoc<span class="sc">$</span>Location<span class="sc">$</span>PostCode</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">org_code =</span> x,</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>         <span class="at">postcode =</span> postcode)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}) <span class="sc">|&gt;</span> <span class="fu">bind_rows</span>()</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>postcode_table</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div data-pagedtable="false">
+  <script data-pagedtable-source="" type="application/json">
+{"columns":[{"label":["org_code"],"name":[1],"type":["chr"],"align":["left"]},{"label":["postcode"],"name":[2],"type":["chr"],"align":["left"]}],"data":[{"1":"RYC","2":"SG8 6NA"},{"1":"RX9","2":"NG8 6PY"},{"1":"RRU","2":"SE1 8SD"},{"1":"RX6","2":"NE15 8NY"},{"1":"RX7","2":"BL1 5DD"},{"1":"RYE","2":"OX26 6HR"},{"1":"RYD","2":"RH10 9BG"},{"1":"RYF","2":"EX2 7HY"},{"1":"RYA","2":"DY5 1LX"},{"1":"RX8","2":"WF2 0XQ"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+<p>We can then use the PostcodesioR package to obtain the geographic details of these postcodes, and join this back to our original data:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(PostcodesioR)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>postcodes_lookup_table <span class="ot">&lt;-</span> <span class="fu">lapply</span>(postcode_table<span class="sc">$</span>postcode, PostcodesioR<span class="sc">::</span>postcode_lookup) <span class="sc">|&gt;</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>() <span class="sc">|&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">right_join</span>(postcode_table, <span class="at">by =</span> <span class="fu">c</span>(<span class="st">'postcode'</span> <span class="ot">=</span> <span class="st">'postcode'</span>))</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>postcodes_lookup_table</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div data-pagedtable="false">
+  <script data-pagedtable-source="" type="application/json">
+{"columns":[{"label":["postcode"],"name":[1],"type":["chr"],"align":["left"]},{"label":["quality"],"name":[2],"type":["int"],"align":["right"]},{"label":["eastings"],"name":[3],"type":["int"],"align":["right"]},{"label":["northings"],"name":[4],"type":["int"],"align":["right"]},{"label":["country"],"name":[5],"type":["chr"],"align":["left"]},{"label":["nhs_ha"],"name":[6],"type":["chr"],"align":["left"]},{"label":["longitude"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["latitude"],"name":[8],"type":["dbl"],"align":["right"]},{"label":["european_electoral_region"],"name":[9],"type":["chr"],"align":["left"]},{"label":["primary_care_trust"],"name":[10],"type":["chr"],"align":["left"]},{"label":["region"],"name":[11],"type":["chr"],"align":["left"]},{"label":["lsoa"],"name":[12],"type":["chr"],"align":["left"]},{"label":["msoa"],"name":[13],"type":["chr"],"align":["left"]},{"label":["incode"],"name":[14],"type":["chr"],"align":["left"]},{"label":["outcode"],"name":[15],"type":["chr"],"align":["left"]},{"label":["parliamentary_constituency"],"name":[16],"type":["chr"],"align":["left"]},{"label":["parliamentary_constituency_2024"],"name":[17],"type":["chr"],"align":["left"]},{"label":["admin_district"],"name":[18],"type":["chr"],"align":["left"]},{"label":["parish"],"name":[19],"type":["chr"],"align":["left"]},{"label":["admin_county"],"name":[20],"type":["chr"],"align":["left"]},{"label":["date_of_introduction"],"name":[21],"type":["chr"],"align":["left"]},{"label":["admin_ward"],"name":[22],"type":["chr"],"align":["left"]},{"label":["ced"],"name":[23],"type":["chr"],"align":["left"]},{"label":["ccg"],"name":[24],"type":["chr"],"align":["left"]},{"label":["nuts"],"name":[25],"type":["chr"],"align":["left"]},{"label":["pfa"],"name":[26],"type":["chr"],"align":["left"]},{"label":["admin_district_code"],"name":[27],"type":["chr"],"align":["left"]},{"label":["admin_county_code"],"name":[28],"type":["chr"],"align":["left"]},{"label":["admin_ward_code"],"name":[29],"type":["chr"],"align":["left"]},{"label":["parish_code"],"name":[30],"type":["chr"],"align":["left"]},{"label":["parliamentary_constituency_code"],"name":[31],"type":["chr"],"align":["left"]},{"label":["parliamentary_constituency_2024_code"],"name":[32],"type":["chr"],"align":["left"]},{"label":["ccg_code"],"name":[33],"type":["chr"],"align":["left"]},{"label":["ccg_id_code"],"name":[34],"type":["chr"],"align":["left"]},{"label":["ced_code"],"name":[35],"type":["chr"],"align":["left"]},{"label":["nuts_code"],"name":[36],"type":["chr"],"align":["left"]},{"label":["lsoa_code"],"name":[37],"type":["chr"],"align":["left"]},{"label":["msoa_code"],"name":[38],"type":["chr"],"align":["left"]},{"label":["lau2_code"],"name":[39],"type":["chr"],"align":["left"]},{"label":["pfa_code"],"name":[40],"type":["chr"],"align":["left"]},{"label":["org_code"],"name":[41],"type":["chr"],"align":["left"]}],"data":[{"1":"SG8 6NA","2":"1","3":"538132","4":"243938","5":"England","6":"East of England","7":"0.014202","8":"52.07659","9":"Eastern","10":"Cambridgeshire","11":"East of England","12":"South Cambridgeshire 018B","13":"South Cambridgeshire 018","14":"6NA","15":"SG8","16":"South Cambridgeshire","17":"South Cambridgeshire","18":"South Cambridgeshire","19":"Melbourn","20":"Cambridgeshire","21":"199412","22":"Melbourn","23":"Melbourn & Bassingbourn","24":"NHS Cambridgeshire and Peterborough","25":"South Cambridgeshire","26":"Cambridgeshire","27":"E07000012","28":"E10000003","29":"E05011300","30":"E04001825","31":"E14001481","32":"E14001481","33":"E38000260","34":"06H","35":"E58000079","36":"TLH42","37":"E01018267","38":"E02003792","39":"E07000012","40":"E23000023","41":"RYC"},{"1":"NG8 6PY","2":"1","3":"451250","4":"342951","5":"England","6":"East Midlands","7":"-1.238122","8":"52.98148","9":"East Midlands","10":"Nottingham City","11":"East Midlands","12":"Nottingham 014A","13":"Nottingham 014","14":"6PY","15":"NG8","16":"Nottingham South","17":"Nottingham South","18":"Nottingham","19":"Nottingham, unparished area","20":"NA","21":"200601","22":"Bilborough","23":"NA","24":"NHS Nottingham and Nottinghamshire","25":"Nottingham","26":"Nottinghamshire","27":"E06000018","28":"E99999999","29":"E05012274","30":"E43000016","31":"E14001412","32":"E14001412","33":"E38000243","34":"52R","35":"E99999999","36":"TLF14","37":"E01013864","38":"E02002881","39":"E06000018","40":"E23000019","41":"RX9"},{"1":"SE1 8SD","2":"1","3":"531352","4":"179610","5":"England","6":"London","7":"-0.109005","8":"51.50017","9":"London","10":"Lambeth","11":"London","12":"Lambeth 036E","13":"Lambeth 036","14":"8SD","15":"SE1","16":"Vauxhall and Camberwell Green","17":"Vauxhall and Camberwell Green","18":"Lambeth","19":"Lambeth, unparished area","20":"NA","21":"198001","22":"Waterloo & South Bank","23":"NA","24":"NHS South East London","25":"Lambeth","26":"Metropolitan Police","27":"E09000022","28":"E99999999","29":"E05014118","30":"E43000212","31":"E14001559","32":"E14001559","33":"E38000244","34":"72Q","35":"E99999999","36":"TLI45","37":"E01032582","38":"E02006801","39":"E09000022","40":"E23000001","41":"RRU"},{"1":"NE15 8NY","2":"1","3":"418512","4":"563937","5":"England","6":"North East","7":"-1.712379","8":"54.96972","9":"North East","10":"Newcastle","11":"North East","12":"Newcastle upon Tyne 021G","13":"Newcastle upon Tyne 021","14":"8NY","15":"NE15","16":"Newcastle upon Tyne Central and West","17":"Newcastle upon Tyne Central and West","18":"Newcastle upon Tyne","19":"Newcastle upon Tyne, unparished area","20":"NA","21":"200303","22":"Lemington","23":"NA","24":"NHS North East and North Cumbria","25":"Newcastle upon Tyne","26":"Northumbria","27":"E08000021","28":"E99999999","29":"E05011451","30":"E43000270","31":"E14001377","32":"E14001377","33":"E38000212","34":"13T","35":"E99999999","36":"TLC43","37":"E01008387","38":"E02001728","39":"E08000021","40":"E23000007","41":"RX6"},{"1":"BL1 5DD","2":"1","3":"368594","4":"409262","5":"England","6":"North West","7":"-2.475804","8":"53.57902","9":"North West","10":"Bolton Teaching","11":"North West","12":"Bolton 020C","13":"Bolton 020","14":"5DD","15":"BL1","16":"Bolton West","17":"Bolton West","18":"Bolton","19":"Bolton, unparished area","20":"NA","21":"198001","22":"Heaton, Lostock & Chew Moor","23":"NA","24":"NHS Greater Manchester","25":"Bolton","26":"Greater Manchester","27":"E08000001","28":"E99999999","29":"E05014826","30":"E43000155","31":"E14001112","32":"E14001112","33":"E38000016","34":"00T","35":"E99999999","36":"TLD36","37":"E01004837","38":"E02001003","39":"E08000001","40":"E23000005","41":"RX7"},{"1":"OX26 6HR","2":"1","3":"458626","4":"221810","5":"England","6":"South Central","7":"-1.149480","8":"51.89178","9":"South East","10":"Oxfordshire","11":"South East","12":"Cherwell 015A","13":"Cherwell 015","14":"6HR","15":"OX26","16":"Bicester and Woodstock","17":"Bicester and Woodstock","18":"Cherwell","19":"Bicester","20":"Oxfordshire","21":"200010","22":"Bicester South and Ambrosden","23":"Otmoor","24":"NHS Buckinghamshire, Oxfordshire and Berkshire West","25":"Cherwell","26":"Thames Valley","27":"E07000177","28":"E10000025","29":"E05012968","30":"E04013332","31":"E14001090","32":"E14001090","33":"E38000136","34":"10Q","35":"E58001763","36":"TLJ14","37":"E01028463","38":"E02005935","39":"E07000177","40":"E23000029","41":"RYE"},{"1":"RH10 9BG","2":"1","3":"528211","4":"138646","5":"England","6":"South East Coast","7":"-0.168947","8":"51.13274","9":"South East","10":"West Sussex","11":"South East","12":"Crawley 004A","13":"Crawley 004","14":"9BG","15":"RH10","16":"Crawley","17":"Crawley","18":"Crawley","19":"Crawley, unparished area","20":"West Sussex","21":"201607","22":"Langley Green & Tushmore","23":"Northgate & West Green","24":"NHS Sussex","25":"Crawley","26":"Sussex","27":"E07000226","28":"E10000032","29":"E05012919","30":"E43000148","31":"E14001184","32":"E14001184","33":"E38000265","34":"70F","35":"E58001645","36":"TLJ28","37":"E01031583","38":"E02006578","39":"E07000226","40":"E23000033","41":"RYD"},{"1":"EX2 7HY","2":"1","3":"296698","4":"92195","5":"England","6":"South West","7":"-3.464758","8":"50.72016","9":"South West","10":"Devon","11":"South West","12":"Exeter 011G","13":"Exeter 011","14":"7HY","15":"EX2","16":"Exmouth and Exeter East","17":"Exmouth and Exeter East","18":"Exeter","19":"Exeter, unparished area","20":"Devon","21":"198001","22":"St Loyes","23":"Wonford & St. Loyes","24":"NHS Devon","25":"Exeter","26":"Devon & Cornwall","27":"E07000041","28":"E10000008","29":"E05011021","30":"E43000052","31":"E14001232","32":"E14001232","33":"E38000230","34":"15N","35":"E58000310","36":"TLK43","37":"E01033234","38":"E02004159","39":"E07000041","40":"E23000035","41":"RYF"},{"1":"DY5 1LX","2":"1","3":"392013","4":"287532","5":"England","6":"West Midlands","7":"-2.119039","8":"52.48566","9":"West Midlands","10":"Dudley","11":"West Midlands","12":"Dudley 022C","13":"Dudley 022","14":"1LX","15":"DY5","16":"Stourbridge","17":"Stourbridge","18":"Dudley","19":"Dudley, unparished area","20":"NA","21":"199612","22":"Brierley Hill & Wordsley South","23":"NA","24":"NHS Black Country","25":"Dudley","26":"West Midlands","27":"E08000027","28":"E99999999","29":"E05015905","30":"E43000181","31":"E14001524","32":"E14001524","33":"E38000259","34":"D2P2L","35":"E99999999","36":"TLG36","37":"E01009746","38":"E02002021","39":"E08000027","40":"E23000014","41":"RYA"},{"1":"WF2 0XQ","2":"1","3":"431861","4":"423772","5":"England","6":"Yorkshire and the Humber","7":"-1.518789","8":"53.70942","9":"Yorkshire and The Humber","10":"Wakefield District","11":"Yorkshire and The Humber","12":"Wakefield 014A","13":"Wakefield 014","14":"0XQ","15":"WF2","16":"Wakefield and Rothwell","17":"Wakefield and Rothwell","18":"Wakefield","19":"Wakefield, unparished area","20":"NA","21":"199208","22":"Wrenthorpe and Outwood West","23":"NA","24":"NHS West Yorkshire","25":"Wakefield","26":"West Yorkshire","27":"E08000036","28":"E99999999","29":"E05001464","30":"E43000190","31":"E14001560","32":"E14001560","33":"E38000190","34":"03R","35":"E99999999","36":"TLE45","37":"E01011885","38":"E02002451","39":"E08000036","40":"E23000010","41":"RX8"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+</div>
+</div>
+<p>This gives us a host of information - most helpfully, for postcodes, latitude and longitude coordinates. We could, if we wanted, plot these easily:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(postcodes_lookup_table) <span class="sc">+</span> </span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>(<span class="fu">aes</span>(<span class="at">x =</span> longitude, <span class="at">y =</span> latitude))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="plotting_postcodes_files/figure-html/unnamed-chunk-4-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>However, a grid of coordinates alone is not very meaningful. Instead, we can convert it into a <a href="https://en.wikipedia.org/wiki/Simple_Features">‘simple features’ (sf)</a> object:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>trusts_sf <span class="ot">&lt;-</span> sf<span class="sc">::</span><span class="fu">st_as_sf</span>(postcodes_lookup_table, <span class="at">coords =</span> <span class="fu">c</span>(<span class="st">'longitude'</span>, <span class="st">'latitude'</span>),</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">crs =</span> <span class="dv">4326</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(trusts_sf) <span class="sc">+</span> </span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">size =</span> <span class="fl">1.5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="plotting_postcodes_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We can see that our latitude and longitude have been interpreted as geospatial data and not just numbers. However, that’s still not much use without a map, which we can source from the <a href="https://geoportal.statistics.gov.uk/">ONS geoportal</a>. Here I have taken the NHS England Regions 2024 boundary file, but the specific file you need will depend on your use case. We need the link to download the <a href="https://en.wikipedia.org/wiki/GeoJSON">GeoJSON</a>, which is found under the ‘View API Resources’ section of the file page:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>geojson <span class="ot">&lt;-</span> <span class="st">'https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/NHS_England_Regions_January_2024_EN_BFC/FeatureServer/0/query?outFields=*&amp;where=1%3D1&amp;f=geojson'</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>nhse_regions <span class="ot">&lt;-</span> sf<span class="sc">::</span><span class="fu">st_read</span>(geojson)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Reading layer `OGRGeoJSON' from data source 
+  `https://services1.arcgis.com/ESMARspQHYMw9BZ9/arcgis/rest/services/NHS_England_Regions_January_2024_EN_BFC/FeatureServer/0/query?outFields=*&amp;where=1%3D1&amp;f=geojson' 
+  using driver `GeoJSON'
+Simple feature collection with 7 features and 10 fields
+Geometry type: MULTIPOLYGON
+Dimension:     XY
+Bounding box:  xmin: -6.418667 ymin: 49.86467 xmax: 1.763706 ymax: 55.81109
+Geodetic CRS:  WGS 84</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span> </span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> nhse_regions) <span class="sc">+</span> </span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> trusts_sf, <span class="at">size =</span> <span class="dv">2</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="plotting_postcodes_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>We can improve this plot in the usual way by adjusting the arguments to ggplot:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>() <span class="sc">+</span> </span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> nhse_regions, <span class="fu">aes</span>(<span class="at">fill =</span> NHSER24NM)) <span class="sc">+</span> </span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_sf</span>(<span class="at">data =</span> trusts_sf, <span class="at">size =</span> <span class="dv">2</span>) <span class="sc">+</span> </span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  ggrepel<span class="sc">::</span><span class="fu">geom_label_repel</span>(</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">data =</span> trusts_sf,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">aes</span>(<span class="at">label =</span> org_code, <span class="at">geometry =</span> geometry),</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">stat =</span> <span class="st">'sf_coordinates'</span>,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">min.segment.length =</span> <span class="fu">unit</span>(<span class="dv">0</span>, <span class="st">'lines'</span>),</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>() <span class="sc">+</span> </span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">'Ambulance trust headquarters per NHS England region'</span>,</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">subtitle =</span> <span class="st">'Source: ODS; ONS Open Geography Portal. Extracted 05-Sep-25.'</span>,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="st">''</span>,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">''</span>,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>       <span class="at">y =</span> <span class="st">''</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="plotting_postcodes_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const onCopySuccess = function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  }
+  const getTextToCopy = function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+    text: getTextToCopy
+  });
+  clipboard.on('success', onCopySuccess);
+  if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+      text: getTextToCopy,
+      container: window.document.getElementById('quarto-embedded-source-code-modal')
+    });
+    clipboardModal.on('success', onCopySuccess);
+  }
+    var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+    var mailtoRegex = new RegExp(/^mailto:/);
+      var filterRegex = new RegExp('/' + window.location.host + '/');
+    var isInternal = (href) => {
+        return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+    }
+    // Inspect non-navigation links and adorn them if external
+ 	var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+    for (var i=0; i<links.length; i++) {
+      const link = links[i];
+      if (!isInternal(link.href)) {
+        // undo the damage that might have been done by quarto-nav.js in the case of
+        // links that we want to consider external
+        if (link.dataset.originalHref !== undefined) {
+          link.href = link.dataset.originalHref;
+        }
+      }
+    }
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      if (note) {
+        return note.innerHTML;
+      } else {
+        return "";
+      }
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
