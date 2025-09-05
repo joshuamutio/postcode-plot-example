@@ -94,7 +94,7 @@ ggplot() +
     stat = 'sf_coordinates',
     min.segment.length = unit(0, 'lines'),
   ) +
-  theme_minimal() + 
+  theme_void() + 
   labs(title = 'Ambulance trust headquarters per NHS England region',
        subtitle = 'Source: ODS; ONS Open Geography Portal. Extracted 05-Sep-25.',
        fill = '',
